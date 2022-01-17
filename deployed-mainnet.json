@@ -1,0 +1,27 @@
+[
+  {
+    "name": "NFTDescriptor",
+    "address": "0x6B06f5e119868b3Aa688CF7249701Ce2a603Fa79"
+  },
+  {
+    "name": "Descriptor",
+    "address": "0x51B2CCc1c72520D6024443CE11405Fd0C7f73A6a"
+  },
+  { "name": "Seeder", "address": "0xBD5CCd56400460E8E72209476f65c77774d18482" },
+  {
+    "name": "WizardToken",
+    "address": "0xC23b12EBA3af92dc3Ec94744c0c260caD0EeD0e5"
+  },
+  {
+    "name": "AuctionHouse",
+    "address": "0xa5A516EC08b42464CE4e1A1ACAb968b8a0fB9c24"
+  },
+  {
+    "name": "AuctionHouseProxyAdmin",
+    "address": "0xB0cbF686D058091ba484d1899f9Bc0Cb2C233FE0"
+  },
+  {
+    "name": "AuctionHouseProxy",
+    "address": "0x418CbB82f7472B321c2C5Ccf76b8d9b6dF47Daba"
+  }
+]

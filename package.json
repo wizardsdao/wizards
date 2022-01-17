@@ -1,0 +1,52 @@
+{
+  "name": "nft",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "clean": "rimraf dist tsconfig.build.tsbuildinfo",
+    "build": "npm run build:sol && npm run build:ts && npm run build:declarations",
+    "build:ts": "tsc -p tsconfig.build.json && cd sdk && tsc -p tsconfig.build.json",
+    "build:sol": "npx hardhat compile",
+    "build:declarations": "cp -R typechain/*.d.ts dist/typechain",
+    "test": "npx hardhat test --verbose",
+    "coverage": "npx hardhat coverage",
+    "encode": "cd scripts/image && ts-node encodeImages.ts ../../files/assets/pngs/",
+    "encode-and-gen": "cd scripts/image && ts-node encodeImages.ts ../../files/assets/pngs/ true 500",
+    "connect-local": "npx hardhat console --network localhost",
+    "connect-rinkeby": "npx hardhat console --network rinkeby",
+    "connect-mainnet": "npx hardhat console --network mainnet",
+    "expose-node": "npx hardhat node --hostname 0.0.0.0"
+  },
+  "keywords": [],
+  "author": "@wiznav & @SaucedXYZ",
+  "devDependencies": {
+    "@float-capital/solidity-coverage": "^0.7.17",
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-etherscan": "^2.1.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@openzeppelin/contracts": "^4.4.1",
+    "@openzeppelin/contracts-upgradeable": "^4.4.1",
+    "@openzeppelin/hardhat-upgrades": "^1.8.2",
+    "@typechain/ethers-v5": "^6.0.1",
+    "@types/express": "^4.17.11",
+    "@types/mocha": "^9.0.0",
+    "@types/prompt": "^1.1.0",
+    "base64-sol": "^1.0.1",
+    "chai": "^4.3.4",
+    "dotenv": "^10.0.0",
+    "ethereum-waffle": "^3.3.0",
+    "ethers": "^5.4.7",
+    "hardhat": "^2.1.1",
+    "hardhat-abi-exporter": "^2.2.1",
+    "hardhat-gas-reporter": "^1.0.4",
+    "hardhat-typechain": "^0.3.5",
+    "prettier-plugin-solidity": "^1.0.0-beta.12",
+    "prompt": "^1.1.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^4.4.4"
+  },
+  "dependencies": {
+    "node-libpng": "^0.2.20"
+  }
+}

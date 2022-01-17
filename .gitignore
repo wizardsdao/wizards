@@ -1,0 +1,36 @@
+node_modules
+.env
+coverage
+coverage.json
+typechain
+.openzeppelin
+wallets
+whitelist.json
+deployed.json
+cache
+/**/sha.ts
+/**/sha.h
+*.tgz
+.env
+*.tsbuildinfo
+*.log
+
+# Hardhat files
+cache
+dist
+artifacts
+
+# don't include binaries
+bin
+
+# don't include any keys
+*.pem
+
+# ignore os system files, node_modules, and any logs
+.DS_Store
+vendor
+node_modules
+.next
+.env
+*.pid
+*.log
