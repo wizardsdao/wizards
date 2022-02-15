@@ -49,6 +49,7 @@ const MIN_INCREMENT_BID_PERCENTAGE = 5;
 const DURATION = 60 * 60 * 24;
 const AUCTION_ONE_ONE = true;
 const WIZARD_CAP = 1000;
+const auctionCount = EthersBN.from("3");
 
 async function deploy() {
   [deployer, bidderA, wethDeployer, creatorsDAO] = await ethers.getSigners();
@@ -81,6 +82,7 @@ async function deploy() {
     DURATION,
     AUCTION_ONE_ONE,
     WIZARD_CAP,
+    auctionCount
   ]);
 
   // 2b. Connect to auction house through the proxy
@@ -115,7 +117,7 @@ describe('End to End test with deployment, auction, proposing, voting, executing
     expect(await wizardsToken.minter()).to.equal(auctionHouse.address);
     expect(await wizardsToken.creatorsDAO()).to.equal(creatorsDAO.address);
 
-    expect(await wizardsToken.totalSupply()).to.equal(EthersBN.from('6'));
+    expect(await wizardsToken.totalSupply()).to.equal(EthersBN.from(auctionCount.toNumber() + 1 + ""));
 
     expect(await wizardsToken.ownerOf(0)).to.equal(creatorsDAO.address);
     expect(await wizardsToken.ownerOf(1)).to.equal(auctionHouse.address);

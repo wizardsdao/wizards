@@ -37,6 +37,7 @@ describe('AuctionHouse', () => {
   const DURATION = 60 * 60 * 24;
   const AUCTION_ONE_ONE = true;
   const WIZARD_CAP = 1000;
+  const auctionCount = BigNumber.from("3");
 
   async function deploy(deployer?: SignerWithAddress) {
     const auctionHouseFactory = await ethers.getContractFactory('AuctionHouse', deployer);
@@ -51,6 +52,7 @@ describe('AuctionHouse', () => {
       DURATION,
       AUCTION_ONE_ONE,
       WIZARD_CAP,
+      auctionCount,
     ]) as Promise<AuctionHouse>;
   }
 
@@ -97,14 +99,12 @@ describe('AuctionHouse', () => {
       MIN_INCREMENT_BID_PERCENTAGE,
       DURATION,
       AUCTION_ONE_ONE,
-      WIZARD_CAP
+      WIZARD_CAP,
+      auctionCount
     );
 
     await expect(tx).to.be.revertedWith('Initializable: contract is already initialized');
   });
-
-  // RH: 
-  // NOTE: unpause before running test 
 
   it('should allow the owner to unpause the contract and create the first auction', async () => {
     const tx = await wizardsAuctionHouse.unpause();
@@ -118,7 +118,7 @@ describe('AuctionHouse', () => {
     await (await wizardsAuctionHouse.unpause()).wait();
 
     const { wizardId } = await wizardsAuctionHouse.auctions(AUCTION_ID);
-    const tx = wizardsAuctionHouse.connect(bidderA).createBid(wizardId.add(5), AUCTION_ID, {
+    const tx = wizardsAuctionHouse.connect(bidderA).createBid(wizardId.add(auctionCount), AUCTION_ID, {
       value: RESERVE_PRICE,
     });
 
@@ -280,8 +280,8 @@ describe('AuctionHouse', () => {
     expect(settledEvent?.args?.winner).to.equal(bidderA.address);
     expect(settledEvent?.args?.amount).to.equal(RESERVE_PRICE);
 
-    // when settling a past auction it should create 5 more for next day
-    expect(createdEvent?.args?.wizardId).to.equal(wizardId.add(10));
+    // when settling a past auction it should create more for next day
+    expect(createdEvent?.args?.wizardId).to.equal(wizardId.add(auctionCount.mul(2).sub(1)));
     expect(createdEvent?.args?.startTime).to.equal(timestamp);
     expect(createdEvent?.args?.endTime).to.equal(timestamp + DURATION);
   });
@@ -323,7 +323,7 @@ describe('AuctionHouse', () => {
 
     const createdEvent = receipt.events?.find(e => e.event === 'AuctionCreated');
 
-    expect(createdEvent?.args?.wizardId).to.equal(wizardId.add(6));
+    expect(createdEvent?.args?.wizardId).to.equal(wizardId.add(auctionCount));
     expect(createdEvent?.args?.startTime).to.equal(timestamp);
     expect(createdEvent?.args?.endTime).to.equal(timestamp + DURATION);
   });
@@ -381,8 +381,8 @@ describe('AuctionHouse', () => {
       const createdEvent = receipt.events?.reverse().find(e => e.event === 'AuctionCreated');
       expect(createdEvent?.args?.isWhitelistDay).to.equal(true);
 
-      // Make sure all 5 auctions have whitelist 
-      for (let i = 1; i <= 5; i += 1) {
+      // Make sure all auctions have whitelist 
+      for (let i = 1; i <= auctionCount.toNumber(); i += 1) {
         const { isWhitelistDay } = await wizardsAuctionHouse.auctions(i);
         expect(isWhitelistDay).to.equal(true);
       }
@@ -465,7 +465,7 @@ describe('AuctionHouse', () => {
       expect(currWhitelistSize).to.equal(0);
 
       // Ensure next auction is not a whitelist day 
-      for (let i = 1; i <= 5; i += 1) {
+      for (let i = 1; i <= auctionCount.toNumber(); i += 1) {
         const { isWhitelistDay } = await wizardsAuctionHouse.auctions(i);
         expect(isWhitelistDay).to.equal(false);
       }
@@ -514,7 +514,7 @@ describe('AuctionHouse', () => {
       const currWhitelistSize = await wizardsAuctionHouse.whitelistSize();
       expect(currWhitelistSize).to.equal(0);
 
-      for (let i = 1; i <= 5; i += 1) {
+      for (let i = 1; i <= auctionCount.toNumber(); i += 1) {
         const { isWhitelistDay } = await wizardsAuctionHouse.auctions(i);
         expect(isWhitelistDay).to.equal(false);
       }
@@ -620,7 +620,7 @@ describe('AuctionHouse', () => {
       expect(newReceiptEventsNo.length).to.be.eq(0)
     })
 
-    it('should auction 5 wizards when started', async () => {
+    it('should auction "auctionCount" wizards when started', async () => {
       const receipt = await (await wizardsAuctionHouse.unpause()).wait();
       const createdEvents = (receipt.events || []).filter(f => {
         if (f.event == "AuctionCreated") {
@@ -629,7 +629,7 @@ describe('AuctionHouse', () => {
 
         return null;
       })
-      expect(createdEvents.length).to.be.eq(5);
+      expect(createdEvents.length).to.be.eq(auctionCount);
     })
 
     it('should include a 1/1 wizard in each auction pool unless turned off', async () => {
@@ -686,6 +686,100 @@ describe('AuctionHouse', () => {
       // wizard ids start at 0 
       const lastWizardId = await wizardsAuctionHouse.lastWizardId();
       expect(lastWizardId).to.be.eq(0);
+
+      // ensure we have cap reached event.
+      const receiptEvents = (receipt.events || []).filter(f => {
+        if (f.event == "AuctionCapReached") {
+          return f
+        }
+
+        return null;
+      })
+      expect(receiptEvents.length).to.be.eq(1);
+
+      // ensure the contract was paused.
+      expect(await wizardsAuctionHouse.paused()).to.be.eq(true);
+
+      // ensure any new auctions attempted to be started are reverted while this contract is paused.
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 25]); // Add 25 hours
+      expect(wizardsAuctionHouse.connect(bidderA).settleCurrentAndCreateNewAuction()).to.be.reverted;
+
+      // unpausing should revert with all wizards auctioned error.
+      expect(wizardsAuctionHouse.unpause()).to.be.revertedWith('All wizards have been auctioned');
+    });
+
+    it('should allow updating of the number of wizards available for auction', async () => {
+      // minting a 1/1 doesn't mint a wizard for creators so if is enabled we would get wizard id #0 as
+      // the last wizard id.
+      await wizardsAuctionHouse.setAuctionOneOfOne(false);
+      await (await wizardsAuctionHouse.unpause()).wait();
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 25]); // Add 25 hours to allow auction to end
+
+      // change the num of wizards on auction and kick off a new one with new count
+      await wizardsAuctionHouse.setAuctionCount(1);
+      await wizardsAuctionHouse.settleCurrentAndCreateNewAuction();
+
+      // wizard ids start at 0 but creators wallet gets the first
+      const lastWizardId = await wizardsAuctionHouse.lastWizardId();
+      expect(lastWizardId).to.be.eq(4);
+    });
+
+    it('should ensure that all wizards get settled when changing auction count', async () => {
+      // minting a 1/1 doesn't mint a wizard for creators so if is enabled we would get wizard id #0 as
+      // the last wizard id.
+      await wizardsAuctionHouse.setAuctionOneOfOne(false);
+      await (await wizardsAuctionHouse.unpause()).wait();
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 25]); // Add 25 hours to allow auction to end
+
+      await wizardsAuctionHouse.setAuctionCount(1);
+      const tx = await wizardsAuctionHouse.connect(bidderA).settleCurrentAndCreateNewAuction();
+      const receipt = await tx.wait();
+      // change the num of wizards on auction and kick off a new auction with new count
+      // ensure only count is settled
+      const revents = (receipt.events || []).filter(f => {
+        if (f.event == "AuctionSettled") {
+          return f
+        }
+
+        return null;
+      })
+      expect(revents.length).to.be.eq(3)
+
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 25]); // Add 25 hours to allow auction to end
+      const tx2 = await wizardsAuctionHouse.connect(bidderA).settleCurrentAndCreateNewAuction();
+      const receipt2 = await tx2.wait();
+
+      const revents2 = (receipt2.events || []).filter(f => {
+        if (f.event == "AuctionSettled") {
+          return f
+        }
+
+        return null;
+      })
+      expect(revents2.length).to.be.eq(1)
+    });  
+    
+    it('should pause if we cannot mint anymore wizards after changing count', async () => {
+      await wizardsToken.setSupply(8);
+      await wizardsAuctionHouse.setWizardCap(8);
+      await wizardsAuctionHouse.unpause()
+      await ethers.provider.send('evm_increaseTime', [60 * 60 * 25]); // Add 25 hours
+
+      await wizardsAuctionHouse.setAuctionCount(5);
+      const tx = await wizardsAuctionHouse.connect(bidderA).settleCurrentAndCreateNewAuction();
+      const receipt = await tx.wait();      
+      const revents = (receipt.events || []).filter(f => {
+        if (f.event == "AuctionSettled") {
+          return f
+        }
+
+        return null;
+      })
+      expect(revents.length).to.be.eq(3)
+
+      // wizard ids start at 0 
+      const lastWizardId = await wizardsAuctionHouse.lastWizardId();
+      expect(lastWizardId).to.be.eq(7);
 
       // ensure we have cap reached event.
       const receiptEvents = (receipt.events || []).filter(f => {

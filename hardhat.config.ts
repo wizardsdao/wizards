@@ -24,7 +24,6 @@ const config = {
       },
     },
   },
-
   networks: {
     mainnet: {
       url: process.env.MAINNET_NETWORK_URL,
