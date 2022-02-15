@@ -247,6 +247,10 @@ contract AuctionHouse is
     mapping(uint256 => IAuctionHouse.Auction) public auctions;
     uint8 public auctionCount;
 
+    // record lastAuctionCount when updating auctionCount so when we attempt to settle the current
+    // auction we get all the wizards.
+    uint256 public lastAuctionCount;
+
     /**
      * @notice Require that the sender is the creators DAO.
      */
@@ -270,7 +274,8 @@ contract AuctionHouse is
         uint8 _minBidIncrementPercentage,
         uint256 _duration,
         bool _auctionOneOfOne,
-        uint256 _wizardCap
+        uint256 _wizardCap,
+        uint8 _auctionCount
     ) external initializer {
         __Pausable_init();
         __ReentrancyGuard_init();
@@ -280,8 +285,7 @@ contract AuctionHouse is
         creatorsDAO = _creatorsDAO;
         daoWallet = _daoWallet;
 
-        // total of 5 wizards can be auctioned at a given time.
-        auctionCount = 5;
+        auctionCount = _auctionCount;
         creatorFeePercent = 10;
 
         auctionOneOfOne = _auctionOneOfOne;
@@ -296,7 +300,7 @@ contract AuctionHouse is
 
     /**
      * @notice Set the creators wallet address.
-     * @dev Only callable by WizardsDAO.
+     * @dev Only callable by creators.
      */
     function setCreatorsDAO(address _creatorsDAO)
         external
@@ -305,6 +309,15 @@ contract AuctionHouse is
     {
         creatorsDAO = _creatorsDAO;
         emit CreatorsDAOUpdated(_creatorsDAO);
+    }
+
+    /**
+     * @notice Set the amount of wizards to auction.
+     * @dev Only callable by owner.
+     */
+    function setAuctionCount(uint8 _auctionCount) external onlyOwner {
+        lastAuctionCount = auctionCount;
+        auctionCount = _auctionCount;
     }
 
     /**
@@ -327,8 +340,15 @@ contract AuctionHouse is
     {
         require(lastWizardId < wizardCap, "All wizards have been auctioned");
 
-        // ensure all auctions have ended.
-        for (uint256 i = 5; i >= 1; i--) {
+        // if lastAuctionCount is different than the auctionCount var set
+        // that means we are undergoing a migration to a diff # of wizards being auctioned.
+        uint256 toSettle = uint256(auctionCount);
+        if (auctionCount != lastAuctionCount && lastAuctionCount != 0) {
+            toSettle = uint256(lastAuctionCount);
+        }
+
+        // ensure all previous auctions have been settled
+        for (uint256 i = toSettle; i >= 1; i--) {
             require(
                 block.timestamp >= auctions[i].endTime,
                 "All auctions have not completed"
@@ -336,9 +356,17 @@ contract AuctionHouse is
         }
 
         // settle past auctions
-        for (uint256 i = 1; i <= 5; i++) {
-            _settleAuction(i);
+        for (uint256 i = 1; i <= toSettle; i++) {
+            IAuctionHouse.Auction memory _a = auctions[i];
+
+            // when paused an auction could have been settled
+            if (!_a.settled) {
+                _settleAuction(i);
+            }
         }
+
+        // further # of auctions will be current auctionCount
+        lastAuctionCount = auctionCount;
 
         // RH:
         // refresh whitelist if whitelistDay
@@ -346,8 +374,8 @@ contract AuctionHouse is
             _refreshWhitelist();
         }
 
-        // start 5 new auctions
-        for (uint256 i = 1; i <= 5; i++) {
+        // start new auctions
+        for (uint256 i = 1; i <= uint256(auctionCount); i++) {
             if (lastWizardId <= wizardCap && !reachedCap) {
                 _createAuction(i);
             }
@@ -384,7 +412,7 @@ contract AuctionHouse is
         IAuctionHouse.Auction memory _auction = auctions[aId];
 
         require(
-            (aId <= auctionCount) && (aId >= 1),
+            (aId <= uint256(auctionCount)) && (aId >= 1),
             "Auction Id is not currently open"
         );
         require(_auction.wizardId == wizardId, "Wizard not up for auction");
@@ -459,7 +487,14 @@ contract AuctionHouse is
     function unpause() external override onlyOwner {
         _unpause();
 
-        for (uint256 i = 1; i <= 5; i++) {
+        // if lastAuctionCount is different than the auctionCount var set
+        // that means we are undergoing a migration to a diff # of wizards being auctioned.
+        if (auctionCount != lastAuctionCount && lastAuctionCount != 0) {
+            // if in a migration we just want to unpause to allow settlement and new auction creation
+            return;
+        }
+
+        for (uint256 i = 1; i <= uint256(auctionCount); i++) {
             IAuctionHouse.Auction memory _a = auctions[i];
             if (_a.startTime == 0 || _a.settled) {
                 if (lastWizardId <= wizardCap && !reachedCap) {
@@ -567,7 +602,7 @@ contract AuctionHouse is
      */
     function stopWhitelistDay() external override onlyOwner {
         whitelistSize = 0;
-        for (uint256 i = 1; i <= 5; i += 1) {
+        for (uint256 i = 1; i <= uint256(auctionCount); i += 1) {
             auctions[i].isWhitelistDay = false;
         }
     }
@@ -579,8 +614,8 @@ contract AuctionHouse is
      * catch the revert and pause this contract.
      */
     function _createAuction(uint256 aId) internal {
-        // every 5th auction is a 1-1 if 1-1 minting is enabled.
-        if (aId % 5 == 0 && auctionOneOfOne) {
+        // every last wizard of the day is a 1-1 if 1-1 minting is enabled.
+        if (aId % uint256(auctionCount) == 0 && auctionOneOfOne) {
             try wizards.mintOneOfOne(oneOfOneId) returns (
                 uint256 wizardId,
                 bool isOneOfOne

@@ -113,6 +113,7 @@ task('deploy', 'Deploys NFTDescriptor, Descriptor, Seeder, and WizardToken')
               args.auctionDuration,
               args.auctionOneOfOne,
               args.wizardCap,
+              5 // auction count
             ]),
         ],
       },
