@@ -132,8 +132,8 @@ describe('End to End test with deployment, auction, proposing, voting, executing
 
     expect(await wizardsToken.ownerOf(1)).to.equal(bidderA.address);
 
-    // ensure dao wallet gets 90% of proceeds
-    const royalty = RESERVE_PRICE.mul(10).div(100);
-    expect(await ethers.provider.getBalance(daoWallet.address)).to.equal(RESERVE_PRICE.sub(royalty));
+    // ensure dao wallet gets 100% of proceeds
+    const royalty = RESERVE_PRICE;
+    expect(await ethers.provider.getBalance(daoWallet.address)).to.equal(RESERVE_PRICE);
   });
 });

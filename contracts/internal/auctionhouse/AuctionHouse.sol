@@ -735,13 +735,8 @@ contract AuctionHouse is
         }
 
         if (_auction.amount > 0) {
-            uint256 amount = _auction.amount;
-            uint256 creatorsShare = amount.mul(creatorFeePercent).div(100);
-
-            _safeTransferETHWithFallback(creatorsDAO, creatorsShare);
-
-            uint256 daoShare = amount.sub(creatorsShare);
-            _safeTransferETHWithFallback(daoWallet, daoShare);
+            uint256 amount = _auction.amount;            
+            _safeTransferETHWithFallback(daoWallet, amount);
         }
 
         emit AuctionSettled(

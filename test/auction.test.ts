@@ -269,12 +269,11 @@ describe('AuctionHouse', () => {
     const createdEvent = receipt.events?.reverse().find(e => e.event === 'AuctionCreated');
 
     // auction fee should be in creators account
-    const royalty = RESERVE_PRICE.mul(10).div(100);
-    expect(await ethers.provider.getBalance(creatorsDAO.address)).to.equal(RESERVE_PRICE.div(10));
+    expect(await ethers.provider.getBalance(creatorsDAO.address)).to.equal(0);
     
     // ensure that the dao wallet gets 90% of proceeds
     const daoBalance = await ethers.provider.getBalance(daoWallet.address)
-    expect(daoBalance).to.equal(RESERVE_PRICE.sub(royalty));
+    expect(daoBalance).to.equal(RESERVE_PRICE);
 
     expect(settledEvent?.args?.wizardId).to.equal(wizardId);
     expect(settledEvent?.args?.winner).to.equal(bidderA.address);
